@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://flowable.org/processes">
+
+    <process id="taskApprovalProcess" name="Task Approval Process" isExecutable="true">
+        <startEvent id="startEvent" name="Start">
+            <extensionElements>
+                <flowable:executionListener event="start" expression="${processStartListener}" />
+            </extensionElements>
+        </startEvent>
+
+        <sequenceFlow id="flow1" sourceRef="startEvent" targetRef="draftTask"/>
+
+        <userTask id="draftTask" name="Draft Task"
+                  flowable:assignee="${initiator}">
+            <documentation>Create draft of the task</documentation>
+        </userTask>
+
+        <sequenceFlow id="flow2" sourceRef="draftTask" targetRef="updateStateToReadyForReview"/>
+
+        <serviceTask id="updateStateToReadyForReview" name="Update State to Ready for Review"
+                     flowable:delegateExpression="${stateUpdateDelegate}">
+        </serviceTask>
+
+        <sequenceFlow id="flow3" sourceRef="updateStateToReadyForReview" targetRef="sendReviewerEmail"/>
+
+        <serviceTask id="sendReviewerEmail" name="Notify Reviewer"
+                     flowable:delegateExpression="${notificationDelegate}"/>
+
+        <sequenceFlow id="flow4" sourceRef="sendReviewerEmail" targetRef="reviewTask"/>
+
+        <userTask id="reviewTask" name="Review Task"
+                  flowable:candidateGroups="reviewers">
+            <documentation>Review the submitted task</documentation>
+        </userTask>
+
+        <sequenceFlow id="flow5" sourceRef="reviewTask" targetRef="reviewDecision"/>
+
+        <exclusiveGateway id="reviewDecision" name="Review Decision"/>
+
+        <sequenceFlow id="flow6" sourceRef="reviewDecision" targetRef="updateStateToReviewAccepted">
+            <conditionExpression xsi:type="tFormalExpression">${approved}</conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flow7" sourceRef="reviewDecision" targetRef="updateStateToReviewRejected">
+            <conditionExpression xsi:type="tFormalExpression">${!approved}</conditionExpression>
+        </sequenceFlow>
+
+        <serviceTask id="updateStateToReviewAccepted" name="Update State to Review Accepted"
+                     flowable:delegateExpression="${stateUpdateDelegate}">
+        </serviceTask>
+
+        <sequenceFlow id="flow8" sourceRef="updateStateToReviewAccepted" targetRef="notifyReviewAccepted"/>
+
+        <serviceTask id="notifyReviewAccepted" name="Notify Review Accepted"
+                     flowable:delegateExpression="${notificationDelegate}"/>
+
+        <sequenceFlow id="flow9" sourceRef="notifyReviewAccepted" targetRef="approveTask"/>
+
+        <serviceTask id="updateStateToReviewRejected" name="Update State to Review Rejected"
+                     flowable:delegateExpression="${stateUpdateDelegate}">
+        </serviceTask>
+
+        <sequenceFlow id="flow10" sourceRef="updateStateToReviewRejected" targetRef="notifyReviewRejected"/>
+
+        <serviceTask id="notifyReviewRejected" name="Notify Review Rejected"
+                     flowable:delegateExpression="${notificationDelegate}"/>
+
+        <sequenceFlow id="flow11" sourceRef="notifyReviewRejected" targetRef="draftTask"/>
+
+        <userTask id="approveTask" name="Approve Task"
+                  flowable:candidateGroups="approvers">
+            <documentation>Final approval of the task</documentation>
+        </userTask>
+
+        <sequenceFlow id="flow12" sourceRef="approveTask" targetRef="approvalDecision"/>
+
+        <exclusiveGateway id="approvalDecision" name="Approval Decision"/>
+
+        <sequenceFlow id="flow13" sourceRef="approvalDecision" targetRef="updateStateToApprovalAccepted">
+            <conditionExpression xsi:type="tFormalExpression">${approved}</conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flow14" sourceRef="approvalDecision" targetRef="updateStateToApprovalRejected">
+            <conditionExpression xsi:type="tFormalExpression">${!approved}</conditionExpression>
+        </sequenceFlow>
+
+        <serviceTask id="updateStateToApprovalAccepted" name="Update State to Approval Accepted"
+                     flowable:delegateExpression="${stateUpdateDelegate}">
+        </serviceTask>
+
+        <sequenceFlow id="flow15" sourceRef="updateStateToApprovalAccepted" targetRef="notifyApprovalAccepted"/>
+
+        <serviceTask id="notifyApprovalAccepted" name="Notify Approval Accepted"
+                     flowable:delegateExpression="${notificationDelegate}"/>
+
+        <sequenceFlow id="flow16" sourceRef="notifyApprovalAccepted" targetRef="endEvent"/>
+
+        <serviceTask id="updateStateToApprovalRejected" name="Update State to Approval Rejected"
+                     flowable:delegateExpression="${stateUpdateDelegate}">
+        </serviceTask>
+
+        <sequenceFlow id="flow17" sourceRef="updateStateToApprovalRejected" targetRef="notifyApprovalRejected"/>
+
+        <serviceTask id="notifyApprovalRejected" name="Notify Approval Rejected"
+                     flowable:delegateExpression="${notificationDelegate}"/>
+
+        <sequenceFlow id="flow18" sourceRef="notifyApprovalRejected" targetRef="draftTask"/>
+
+        <endEvent id="endEvent" name="End"/>
+    </process>
+</definitions>
