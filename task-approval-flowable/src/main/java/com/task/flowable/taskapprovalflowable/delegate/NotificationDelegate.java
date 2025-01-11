@@ -16,7 +16,7 @@ public class NotificationDelegate implements JavaDelegate  {
 
         String state = String.valueOf(execution.getVariable("state"));
         Long taskId = (Long) execution.getVariable("taskId");
-
+        //an email will be triggered from here
         logger.info("Sending email to notify user that task {} status updated to {}", taskId, state);
     }
 }

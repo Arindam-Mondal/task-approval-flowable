@@ -1,13 +1,19 @@
 package com.task.flowable.taskapprovalflowable.service;
 
 
+import com.task.flowable.taskapprovalflowable.exception.DuplicateTaskException;
+import com.task.flowable.taskapprovalflowable.exception.TaskNotFoundException;
 import com.task.flowable.taskapprovalflowable.model.Task;
 import com.task.flowable.taskapprovalflowable.model.TaskState;
 import com.task.flowable.taskapprovalflowable.repository.TaskRepository;
 import lombok.AllArgsConstructor;
+import org.flowable.engine.HistoryService;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
+import org.flowable.engine.history.HistoricProcessInstance;
+import org.flowable.engine.history.HistoricProcessInstanceQuery;
 import org.flowable.engine.runtime.ProcessInstance;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -22,12 +28,21 @@ public class FlowableTaskService {
     private final static String REVIEW_TASK = "reviewTask";
     private final static String APPROVE_TASK = "approveTask";
 
+    @Autowired
+    private HistoryService historyService;
+
     private final TaskRepository taskRepository;
     private final RuntimeService runtimeService;
     private final TaskService taskService;
 
     // Start a new process with a Task
     public Map<String, Object> startProcessWithTask(Task task) {
+
+        taskRepository.findById(task.getId())
+            .ifPresent(taskObject -> {
+                throw new DuplicateTaskException("Duplicate task with ID: " + task.getId());
+            });
+
         Task savedTask = taskRepository.save(task);
         Map<String, Object> variables = new HashMap<>();
         variables.put("taskId", savedTask.getId());
@@ -70,7 +85,7 @@ public class FlowableTaskService {
     public void updateTaskStatus(Long taskId, Task taskModel) {
 
         Task taskObject = taskRepository.findById(taskId)
-            .orElseThrow(() -> new RuntimeException("Task not found: " + taskId));
+            .orElseThrow(() -> new TaskNotFoundException("Task not found: " + taskId));
 
         if (taskModel.getState() == TaskState.DOCUMENT_READY_FOR_REVIEW) {
             updateTaskState(taskId, taskModel, taskObject, DRAFT_TASK);
@@ -94,18 +109,36 @@ public class FlowableTaskService {
             state = TaskState.DRAFT;
         }
 
-        org.flowable.task.api.Task draftTask = taskService.createTaskQuery()
-            .taskDefinitionKey(taskDefinitionKey)
-            .processVariableValueEquals("taskId", taskId)
-            .singleResult();
+        org.flowable.task.api.Task task = getTask(taskId, taskDefinitionKey);
 
         Map<String, Object> variables = new HashMap<>();
         variables.put("state", state);
         variables.put("taskId", taskId);
         variables.put("approved", isApproved);
 
-        taskService.complete(draftTask.getId(), variables);
+        taskService.complete(task.getId(), variables);
         taskObject.setState(taskModel.getState());
+    }
+
+    private org.flowable.task.api.Task getTask(Long taskId, String taskDefinitionKey) {
+        return taskService.createTaskQuery()
+            .taskDefinitionKey(taskDefinitionKey)
+            .processVariableValueEquals("taskId", taskId)
+            .singleResult();
+    }
+
+    public List<String> getAllProcess() {
+        // Create the query to fetch completed processes
+        HistoricProcessInstanceQuery query = historyService.createHistoricProcessInstanceQuery()
+            .finished();  // This filters for completed processes
+
+        // Execute the query and get the list of HistoricProcessInstances
+        List<HistoricProcessInstance> completedProcesses = query.list();
+
+        // Extract the process instance IDs
+        return completedProcesses.stream()
+            .map(HistoricProcessInstance::getId)
+            .toList();
     }
 
 }

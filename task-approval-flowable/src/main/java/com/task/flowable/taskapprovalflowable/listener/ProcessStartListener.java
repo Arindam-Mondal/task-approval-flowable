@@ -1,9 +1,9 @@
 package com.task.flowable.taskapprovalflowable.listener;
 
+import com.task.flowable.taskapprovalflowable.exception.TaskNotFoundException;
 import com.task.flowable.taskapprovalflowable.model.Task;
 import com.task.flowable.taskapprovalflowable.model.TaskState;
 import com.task.flowable.taskapprovalflowable.repository.TaskRepository;
-import lombok.RequiredArgsConstructor;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.ExecutionListener;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +23,7 @@ public class ProcessStartListener implements ExecutionListener {
     public void notify(DelegateExecution execution) {
         Long taskId = (Long) execution.getVariable("taskId");
         Task task = taskRepository.findById(taskId)
-            .orElseThrow(() -> new RuntimeException("Task not found: " + taskId));
+            .orElseThrow(() -> new TaskNotFoundException("Task not found: " + taskId));
 
         task.setState(TaskState.DRAFT);
         taskRepository.save(task);

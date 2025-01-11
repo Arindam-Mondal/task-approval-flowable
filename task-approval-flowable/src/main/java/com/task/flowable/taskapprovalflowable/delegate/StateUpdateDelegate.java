@@ -1,11 +1,9 @@
 package com.task.flowable.taskapprovalflowable.delegate;
 
-import com.task.flowable.taskapprovalflowable.controller.WorkflowController;
+import com.task.flowable.taskapprovalflowable.exception.TaskNotFoundException;
 import com.task.flowable.taskapprovalflowable.model.Task;
 import com.task.flowable.taskapprovalflowable.model.TaskState;
 import com.task.flowable.taskapprovalflowable.repository.TaskRepository;
-import lombok.RequiredArgsConstructor;
-import org.flowable.engine.RuntimeService;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.JavaDelegate;
 import org.slf4j.Logger;
@@ -30,7 +28,7 @@ public class StateUpdateDelegate implements JavaDelegate {
         Long taskId = (Long) execution.getVariable("taskId");
 
         Task task = taskRepository.findById(taskId)
-            .orElseThrow(() -> new RuntimeException("Task not found: " + taskId));
+            .orElseThrow(() -> new TaskNotFoundException("Task not found: " + taskId));
 
         logger.info("Updating task state to {} for task {}", state, taskId);
 

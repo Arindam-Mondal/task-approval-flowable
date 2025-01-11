@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -23,10 +24,11 @@ public class WorkflowController {
     private final FlowableTaskService flowableTaskService;
     private static final Logger logger = LoggerFactory.getLogger(WorkflowController.class);
 
-    @PostMapping("/start")
-    public ResponseEntity<Map<String, Object>> startProcess(@RequestBody Task task) {
+    @PostMapping("/start/{taskId}")
+    public ResponseEntity<Map<String, Object>> startProcess(@RequestBody Task taskModel,@PathVariable Long taskId) {
         logger.info("Starting process");
-        Map<String, Object> response = flowableTaskService.startProcessWithTask(task);
+        taskModel.setId(taskId);
+        Map<String, Object> response = flowableTaskService.startProcessWithTask(taskModel);
         logger.info("Process started with process id {} and task id {}", response.get("processInstanceId"), response.get("taskId"));
         return ResponseEntity.ok(response);
     }
@@ -45,6 +47,15 @@ public class WorkflowController {
 
         flowableTaskService.updateTaskStatus(taskId, taskModel);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Get all completed process instance IDs
+     * @return List of completed process instance IDs
+     */
+    @GetMapping("/process/all")
+    public ResponseEntity<List<String>> getCompletedProcessInstanceIds() {
+        return ResponseEntity.ok(flowableTaskService.getAllProcess());
     }
 
 }
