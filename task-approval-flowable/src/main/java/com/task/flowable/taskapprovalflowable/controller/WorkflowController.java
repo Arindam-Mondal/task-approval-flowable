@@ -1,5 +1,6 @@
 package com.task.flowable.taskapprovalflowable.controller;
 
+import com.task.flowable.taskapprovalflowable.dto.ProcessInstanceDTO;
 import com.task.flowable.taskapprovalflowable.model.Record;
 import com.task.flowable.taskapprovalflowable.service.FlowableTaskService;
 import lombok.RequiredArgsConstructor;
@@ -54,8 +55,8 @@ public class WorkflowController {
      * @return List of completed process instance IDs
      */
     @GetMapping("/process/all")
-    public ResponseEntity<List<String>> getCompletedProcessInstanceIds() {
-        return ResponseEntity.ok(flowableTaskService.getAllProcess());
+    public ResponseEntity<List<ProcessInstanceDTO>> getCompletedProcessInstanceIds() {
+        return ResponseEntity.ok(flowableTaskService.getAllProcessInstances());
     }
 
 }

@@ -1,6 +1,7 @@
 package com.task.flowable.taskapprovalflowable.service;
 
 
+import com.task.flowable.taskapprovalflowable.dto.ProcessInstanceDTO;
 import com.task.flowable.taskapprovalflowable.exception.DuplicateRecordException;
 import com.task.flowable.taskapprovalflowable.exception.RecordNotFoundException;
 import com.task.flowable.taskapprovalflowable.model.Record;
@@ -16,6 +17,7 @@ import org.flowable.engine.runtime.ProcessInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -143,6 +145,62 @@ public class FlowableTaskService {
         return completedProcesses.stream()
             .map(HistoricProcessInstance::getId)
             .toList();
+    }
+
+    public List<ProcessInstanceDTO> getAllProcessInstances() {
+        List<ProcessInstanceDTO> allProcesses = new ArrayList<>();
+
+        // Get historic processes (both finished and unfinished)
+        List<HistoricProcessInstance> historicProcesses = historyService.createHistoricProcessInstanceQuery()
+            .orderByProcessInstanceStartTime()
+            .desc()
+            .list();
+
+        // Get current running processes
+        List<ProcessInstance> runningProcesses = runtimeService.createProcessInstanceQuery()
+            .active()
+            .list();
+
+        // Map historic processes
+        for (HistoricProcessInstance historicProcess : historicProcesses) {
+            String state;
+            if (historicProcess.getEndTime() != null) {
+                state = "COMPLETED";
+            } else {
+                // Check if it's still running
+                ProcessInstance runningInstance = runtimeService.createProcessInstanceQuery()
+                    .processInstanceId(historicProcess.getId())
+                    .singleResult();
+                if (runningInstance != null) {
+                    state = runningInstance.isSuspended() ? "SUSPENDED" : "ACTIVE";
+                } else {
+                    state = "TERMINATED";
+                }
+            }
+
+            allProcesses.add(new ProcessInstanceDTO(
+                historicProcess.getProcessDefinitionId(),
+                historicProcess.getId(),
+                state
+            ));
+        }
+
+        // Add any running processes that might not be in history yet
+        for (ProcessInstance runningProcess : runningProcesses) {
+            // Check if we already added this process from history
+            boolean exists = allProcesses.stream()
+                .anyMatch(p -> p.getInstanceId().equals(runningProcess.getId()));
+
+            if (!exists) {
+                allProcesses.add(new ProcessInstanceDTO(
+                    runningProcess.getProcessDefinitionId(),
+                    runningProcess.getId(),
+                    runningProcess.isSuspended() ? "SUSPENDED" : "ACTIVE"
+                ));
+            }
+        }
+
+        return allProcesses;
     }
 
 }
