@@ -1,11 +1,11 @@
 package com.task.flowable.taskapprovalflowable.service;
 
 
-import com.task.flowable.taskapprovalflowable.exception.DuplicateTaskException;
-import com.task.flowable.taskapprovalflowable.exception.TaskNotFoundException;
-import com.task.flowable.taskapprovalflowable.model.Task;
-import com.task.flowable.taskapprovalflowable.model.TaskState;
-import com.task.flowable.taskapprovalflowable.repository.TaskRepository;
+import com.task.flowable.taskapprovalflowable.exception.DuplicateRecordException;
+import com.task.flowable.taskapprovalflowable.exception.RecordNotFoundException;
+import com.task.flowable.taskapprovalflowable.model.Record;
+import com.task.flowable.taskapprovalflowable.model.RecordState;
+import com.task.flowable.taskapprovalflowable.repository.RecordRepository;
 import lombok.AllArgsConstructor;
 import org.flowable.engine.HistoryService;
 import org.flowable.engine.RuntimeService;
@@ -31,22 +31,22 @@ public class FlowableTaskService {
     @Autowired
     private HistoryService historyService;
 
-    private final TaskRepository taskRepository;
+    private final RecordRepository recordRepository;
     private final RuntimeService runtimeService;
     private final TaskService taskService;
 
-    // Start a new process with a Task
-    public Map<String, Object> startProcessWithTask(Task task) {
+    // Start a new process with a Record
+    public Map<String, Object> startProcessWithTask(Record record) {
 
-        taskRepository.findById(task.getId())
+        recordRepository.findById(record.getId())
             .ifPresent(taskObject -> {
-                throw new DuplicateTaskException("Duplicate task with ID: " + task.getId());
+                throw new DuplicateRecordException("Duplicate record with ID: " + record.getId());
             });
 
-        Task savedTask = taskRepository.save(task);
+        Record savedRecord = recordRepository.save(record);
         Map<String, Object> variables = new HashMap<>();
-        variables.put("taskId", savedTask.getId());
-        variables.put("initiator", task.getCreatedBy());
+        variables.put("recordId", savedRecord.getId());
+        variables.put("initiator", record.getCreatedBy());
 
         ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
             "taskApprovalProcess",
@@ -55,7 +55,7 @@ public class FlowableTaskService {
 
         Map<String, Object> response = new HashMap<>();
         response.put("processInstanceId", processInstance.getId());
-        response.put("taskId", savedTask.getId());
+        response.put("recordId", savedRecord.getId());
 
         return response;
     }
@@ -82,48 +82,48 @@ public class FlowableTaskService {
     }
 
     // Update the task status and complete the associated process task
-    public void updateTaskStatus(Long taskId, Task taskModel) {
+    public void updateTaskStatus(Long recordId, Record taskModel) {
 
-        Task taskObject = taskRepository.findById(taskId)
-            .orElseThrow(() -> new TaskNotFoundException("Task not found: " + taskId));
+        Record taskObject = recordRepository.findById(recordId)
+            .orElseThrow(() -> new RecordNotFoundException("Record not found: " + recordId));
 
-        if (taskModel.getState() == TaskState.DOCUMENT_READY_FOR_REVIEW) {
-            updateTaskState(taskId, taskModel, taskObject, DRAFT_TASK);
-        }else if(taskModel.getState() == TaskState.REVIEW_ACCEPTED || taskModel.getState() == TaskState.REVIEW_REJECTED) {
-            updateTaskState(taskId, taskModel, taskObject, REVIEW_TASK);
-        } else if(taskModel.getState() == TaskState.APPROVAL_ACCEPTED || taskModel.getState() == TaskState.APPROVAL_REJECTED) {
-            updateTaskState(taskId, taskModel, taskObject, APPROVE_TASK);
+        if (taskModel.getState() == RecordState.DOCUMENT_READY_FOR_REVIEW) {
+            updateTaskState(recordId, taskModel, taskObject, DRAFT_TASK);
+        }else if(taskModel.getState() == RecordState.REVIEW_ACCEPTED || taskModel.getState() == RecordState.REVIEW_REJECTED) {
+            updateTaskState(recordId, taskModel, taskObject, REVIEW_TASK);
+        } else if(taskModel.getState() == RecordState.APPROVAL_ACCEPTED || taskModel.getState() == RecordState.APPROVAL_REJECTED) {
+            updateTaskState(recordId, taskModel, taskObject, APPROVE_TASK);
         }
 
     }
 
-    private void updateTaskState(Long taskId, Task taskModel, Task taskObject, String taskDefinitionKey) {
+    private void updateTaskState(Long recordId, Record taskModel, Record taskObject, String taskDefinitionKey) {
 
-        boolean isApproved = taskModel.getState() == TaskState.REVIEW_ACCEPTED || taskModel.getState() == TaskState.APPROVAL_ACCEPTED;
+        boolean isApproved = taskModel.getState() == RecordState.REVIEW_ACCEPTED || taskModel.getState() == RecordState.APPROVAL_ACCEPTED;
 
-        TaskState state = taskModel.getState();
+        RecordState state = taskModel.getState();
 
-        if(state == TaskState.APPROVAL_ACCEPTED) {
-            state = TaskState.SIGNED;
-        } else if(state == TaskState.REVIEW_REJECTED || state == TaskState.APPROVAL_REJECTED) {
-            state = TaskState.DRAFT;
+        if(state == RecordState.APPROVAL_ACCEPTED) {
+            state = RecordState.SIGNED;
+        } else if(state == RecordState.REVIEW_REJECTED || state == RecordState.APPROVAL_REJECTED) {
+            state = RecordState.DRAFT;
         }
 
-        org.flowable.task.api.Task task = getTask(taskId, taskDefinitionKey);
+        org.flowable.task.api.Task task = getTask(recordId, taskDefinitionKey);
 
         Map<String, Object> variables = new HashMap<>();
         variables.put("state", state);
-        variables.put("taskId", taskId);
+        variables.put("recordId", recordId);
         variables.put("approved", isApproved);
 
         taskService.complete(task.getId(), variables);
         taskObject.setState(taskModel.getState());
     }
 
-    private org.flowable.task.api.Task getTask(Long taskId, String taskDefinitionKey) {
+    private org.flowable.task.api.Task getTask(Long recordId, String taskDefinitionKey) {
         return taskService.createTaskQuery()
             .taskDefinitionKey(taskDefinitionKey)
-            .processVariableValueEquals("taskId", taskId)
+            .processVariableValueEquals("recordId", recordId)
             .singleResult();
     }
 

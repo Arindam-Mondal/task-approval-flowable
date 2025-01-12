@@ -1,9 +1,9 @@
 package com.task.flowable.taskapprovalflowable.delegate;
 
-import com.task.flowable.taskapprovalflowable.exception.TaskNotFoundException;
-import com.task.flowable.taskapprovalflowable.model.Task;
-import com.task.flowable.taskapprovalflowable.model.TaskState;
-import com.task.flowable.taskapprovalflowable.repository.TaskRepository;
+import com.task.flowable.taskapprovalflowable.exception.RecordNotFoundException;
+import com.task.flowable.taskapprovalflowable.model.Record;
+import com.task.flowable.taskapprovalflowable.model.RecordState;
+import com.task.flowable.taskapprovalflowable.repository.RecordRepository;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.JavaDelegate;
 import org.slf4j.Logger;
@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 public class StateUpdateDelegate implements JavaDelegate {
 
     @Autowired
-    private TaskRepository taskRepository;
+    private RecordRepository recordRepository;
 
     private static final Logger logger = LoggerFactory.getLogger(StateUpdateDelegate.class);
 
@@ -25,22 +25,22 @@ public class StateUpdateDelegate implements JavaDelegate {
     public void execute(DelegateExecution execution) {
 
         String state = String.valueOf(execution.getVariable("state"));
-        Long taskId = (Long) execution.getVariable("taskId");
+        Long recordId = (Long) execution.getVariable("recordId");
 
-        Task task = taskRepository.findById(taskId)
-            .orElseThrow(() -> new TaskNotFoundException("Task not found: " + taskId));
+        Record record = recordRepository.findById(recordId)
+            .orElseThrow(() -> new RecordNotFoundException("Record not found: " + recordId));
 
-        logger.info("Updating task state to {} for task {}", state, taskId);
+        logger.info("Updating record state to {} for record {}", state, recordId);
 
-        task.setState(TaskState.valueOf(state));
-        task.setLastModifiedAt(LocalDateTime.now());
+        record.setState(RecordState.valueOf(state));
+        record.setLastModifiedAt(LocalDateTime.now());
 
         // Update comments if available
         String comments = (String) execution.getVariable("comments");
         if (comments != null) {
-            task.setComments(comments);
+            record.setComments(comments);
         }
 
-        taskRepository.save(task);
+        recordRepository.save(record);
     }
 }

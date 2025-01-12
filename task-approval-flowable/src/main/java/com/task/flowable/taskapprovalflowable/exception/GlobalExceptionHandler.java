@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
     // Handle DuplicateTaskException
-    @ExceptionHandler(DuplicateTaskException.class)
-    public ResponseEntity<ErrorResponse> handleDuplicateTaskException(DuplicateTaskException ex) {
+    @ExceptionHandler(DuplicateRecordException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateTaskException(DuplicateRecordException ex) {
         // Create a structured error response
         ErrorResponse errorResponse = new ErrorResponse(
             HttpStatus.BAD_REQUEST.value(),
@@ -20,8 +20,8 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
-    @ExceptionHandler(TaskNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleTaskNotFoundException(TaskNotFoundException ex) {
+    @ExceptionHandler(RecordNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleTaskNotFoundException(RecordNotFoundException ex) {
         ErrorResponse errorResponse = new ErrorResponse(
             HttpStatus.NOT_FOUND.value(),
             ex.getMessage()

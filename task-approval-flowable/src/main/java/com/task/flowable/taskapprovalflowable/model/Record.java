@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Table(name = "task")
-public class Task {
+public class Record {
     @Id
     private Long id;
 
@@ -28,7 +28,7 @@ public class Task {
     private String description;
 
     @Enumerated(EnumType.STRING)
-    private TaskState state = TaskState.DRAFT;
+    private RecordState state = RecordState.DRAFT;
 
     private String createdBy;
 

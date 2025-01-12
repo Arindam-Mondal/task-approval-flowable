@@ -1,6 +1,6 @@
 package com.task.flowable.taskapprovalflowable.controller;
 
-import com.task.flowable.taskapprovalflowable.model.Task;
+import com.task.flowable.taskapprovalflowable.model.Record;
 import com.task.flowable.taskapprovalflowable.service.FlowableTaskService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -24,12 +24,12 @@ public class WorkflowController {
     private final FlowableTaskService flowableTaskService;
     private static final Logger logger = LoggerFactory.getLogger(WorkflowController.class);
 
-    @PostMapping("/start/{taskId}")
-    public ResponseEntity<Map<String, Object>> startProcess(@RequestBody Task taskModel,@PathVariable Long taskId) {
+    @PostMapping("/start/{recordId}")
+    public ResponseEntity<Map<String, Object>> startProcess(@RequestBody Record recordModel, @PathVariable Long recordId) {
         logger.info("Starting process");
-        taskModel.setId(taskId);
-        Map<String, Object> response = flowableTaskService.startProcessWithTask(taskModel);
-        logger.info("Process started with process id {} and task id {}", response.get("processInstanceId"), response.get("taskId"));
+        recordModel.setId(recordId);
+        Map<String, Object> response = flowableTaskService.startProcessWithTask(recordModel);
+        logger.info("Process started with process id {} and record id {}", response.get("processInstanceId"), response.get("recordId"));
         return ResponseEntity.ok(response);
     }
 
@@ -40,12 +40,12 @@ public class WorkflowController {
         return ResponseEntity.ok(state);
     }
 
-    @PostMapping("/tasks/{taskId}")
+    @PostMapping("/tasks/{recordId}")
     public ResponseEntity<Void> updateTaskStatus(
-        @PathVariable Long taskId,
-        @RequestBody Task taskModel) {
+        @PathVariable Long recordId,
+        @RequestBody Record recordModel) {
 
-        flowableTaskService.updateTaskStatus(taskId, taskModel);
+        flowableTaskService.updateTaskStatus(recordId, recordModel);
         return ResponseEntity.ok().build();
     }
 

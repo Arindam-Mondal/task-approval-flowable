@@ -1,6 +1,6 @@
 package com.task.flowable.taskapprovalflowable.model;
 
-public enum TaskState {
+public enum RecordState {
     DRAFT,
     DOCUMENT_READY_FOR_REVIEW,
     REVIEW_ACCEPTED,

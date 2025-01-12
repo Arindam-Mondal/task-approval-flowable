@@ -1,9 +1,9 @@
 package com.task.flowable.taskapprovalflowable.repository;
 
-import com.task.flowable.taskapprovalflowable.model.Task;
+import com.task.flowable.taskapprovalflowable.model.Record;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface TaskRepository extends JpaRepository<Task, Long> {
+public interface RecordRepository extends JpaRepository<Record, Long> {
 }
