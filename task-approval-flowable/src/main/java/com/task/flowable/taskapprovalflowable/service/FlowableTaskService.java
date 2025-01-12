@@ -36,7 +36,7 @@ public class FlowableTaskService {
     private final TaskService taskService;
 
     // Start a new process with a Record
-    public Map<String, Object> startProcessWithTask(Record record) {
+    public Map<String, Object> startProcessWithRecord(Record record) {
 
         recordRepository.findById(record.getId())
             .ifPresent(taskObject -> {
@@ -82,22 +82,22 @@ public class FlowableTaskService {
     }
 
     // Update the task status and complete the associated process task
-    public void updateTaskStatus(Long recordId, Record taskModel) {
+    public void updateRecordStatus(Long recordId, Record taskModel) {
 
         Record taskObject = recordRepository.findById(recordId)
             .orElseThrow(() -> new RecordNotFoundException("Record not found: " + recordId));
 
         if (taskModel.getState() == RecordState.DOCUMENT_READY_FOR_REVIEW) {
-            updateTaskState(recordId, taskModel, taskObject, DRAFT_TASK);
+            updateRecordState(recordId, taskModel, taskObject, DRAFT_TASK);
         }else if(taskModel.getState() == RecordState.REVIEW_ACCEPTED || taskModel.getState() == RecordState.REVIEW_REJECTED) {
-            updateTaskState(recordId, taskModel, taskObject, REVIEW_TASK);
+            updateRecordState(recordId, taskModel, taskObject, REVIEW_TASK);
         } else if(taskModel.getState() == RecordState.APPROVAL_ACCEPTED || taskModel.getState() == RecordState.APPROVAL_REJECTED) {
-            updateTaskState(recordId, taskModel, taskObject, APPROVE_TASK);
+            updateRecordState(recordId, taskModel, taskObject, APPROVE_TASK);
         }
 
     }
 
-    private void updateTaskState(Long recordId, Record taskModel, Record taskObject, String taskDefinitionKey) {
+    private void updateRecordState(Long recordId, Record taskModel, Record taskObject, String taskDefinitionKey) {
 
         boolean isApproved = taskModel.getState() == RecordState.REVIEW_ACCEPTED || taskModel.getState() == RecordState.APPROVAL_ACCEPTED;
 

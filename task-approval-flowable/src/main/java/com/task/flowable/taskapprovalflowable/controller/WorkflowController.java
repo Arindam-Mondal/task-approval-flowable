@@ -28,7 +28,7 @@ public class WorkflowController {
     public ResponseEntity<Map<String, Object>> startProcess(@RequestBody Record recordModel, @PathVariable Long recordId) {
         logger.info("Starting process");
         recordModel.setId(recordId);
-        Map<String, Object> response = flowableTaskService.startProcessWithTask(recordModel);
+        Map<String, Object> response = flowableTaskService.startProcessWithRecord(recordModel);
         logger.info("Process started with process id {} and record id {}", response.get("processInstanceId"), response.get("recordId"));
         return ResponseEntity.ok(response);
     }
@@ -40,12 +40,12 @@ public class WorkflowController {
         return ResponseEntity.ok(state);
     }
 
-    @PostMapping("/tasks/{recordId}")
-    public ResponseEntity<Void> updateTaskStatus(
+    @PostMapping("/{recordId}")
+    public ResponseEntity<Void> updateRecordStatus(
         @PathVariable Long recordId,
         @RequestBody Record recordModel) {
 
-        flowableTaskService.updateTaskStatus(recordId, recordModel);
+        flowableTaskService.updateRecordStatus(recordId, recordModel);
         return ResponseEntity.ok().build();
     }
 
