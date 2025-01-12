@@ -24,6 +24,7 @@ public class Record {
 
     private String title;
     private String description;
+    private String processInstanceId;
 
     @Enumerated(EnumType.STRING)
     private RecordState state = RecordState.DRAFT;

@@ -39,13 +39,13 @@ public class FlowableTaskService {
     public Map<String, Object> startProcessWithRecord(Record record) {
 
         recordRepository.findById(record.getId())
-            .ifPresent(taskObject -> {
-                throw new DuplicateRecordException("Duplicate record with ID: " + record.getId());
+            .ifPresent(recordObject -> {
+                throw new DuplicateRecordException("Duplicate record with ID: " + recordObject.getId() +" is already associated to process " + recordObject.getProcessInstanceId());
             });
 
-        Record savedRecord = recordRepository.save(record);
+
         Map<String, Object> variables = new HashMap<>();
-        variables.put("recordId", savedRecord.getId());
+        variables.put("recordId", record.getId());
         variables.put("initiator", record.getCreatedBy());
 
         ProcessInstance processInstance = runtimeService.startProcessInstanceByKey(
@@ -55,7 +55,11 @@ public class FlowableTaskService {
 
         Map<String, Object> response = new HashMap<>();
         response.put("processInstanceId", processInstance.getId());
-        response.put("recordId", savedRecord.getId());
+        response.put("recordId", record.getId());
+
+        record.setProcessInstanceId(processInstance.getId());
+
+        recordRepository.save(record);
 
         return response;
     }
