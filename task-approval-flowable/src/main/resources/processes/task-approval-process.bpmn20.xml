@@ -6,9 +6,6 @@
 
     <process id="taskApprovalProcess" name="Task Approval Process" isExecutable="true">
         <startEvent id="startEvent" name="Start">
-            <extensionElements>
-                <flowable:executionListener event="start" expression="${processStartListener}" />
-            </extensionElements>
         </startEvent>
 
         <sequenceFlow id="flow1" sourceRef="startEvent" targetRef="draftTask"/>

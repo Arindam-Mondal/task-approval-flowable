@@ -1,7 +1,5 @@
 package com.task.flowable.taskapprovalflowable.controller;
 
-import com.task.flowable.taskapprovalflowable.dto.ActivityInstanceDTO;
-import com.task.flowable.taskapprovalflowable.dto.ProcessInstanceDTO;
 import com.task.flowable.taskapprovalflowable.dto.WorkflowDTO;
 import com.task.flowable.taskapprovalflowable.exception.DataCorruptionException;
 import com.task.flowable.taskapprovalflowable.exception.DuplicateRecordException;
@@ -13,9 +11,7 @@ import org.flowable.common.engine.api.FlowableException;
 import org.flowable.engine.HistoryService;
 import org.flowable.engine.RuntimeService;
 import org.flowable.engine.TaskService;
-import org.flowable.engine.history.HistoricActivityInstance;
 import org.flowable.engine.history.HistoricProcessInstance;
-import org.flowable.engine.runtime.ActivityInstance;
 import org.flowable.engine.runtime.ProcessInstance;
 import org.flowable.variable.api.history.HistoricVariableInstance;
 import org.slf4j.Logger;
@@ -29,7 +25,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -40,7 +35,7 @@ import java.util.stream.Collectors;
 import static org.apache.commons.lang3.ObjectUtils.isEmpty;
 
 @RestController
-@RequestMapping("/api/workflow")
+@RequestMapping("/workflow")
 @RequiredArgsConstructor
 public class WorkflowController {
     private static final Logger logger = LoggerFactory.getLogger(WorkflowController.class);
@@ -53,19 +48,6 @@ public class WorkflowController {
     private final TaskService taskService;
     private final HistoryService historyService;
 
-    @GetMapping("/process/{processInstanceId}/state")
-    public ResponseEntity<String> getProcessState(@PathVariable String processInstanceId) {
-        logger.info("Fetching state for process {}", processInstanceId);
-        String state = getWorkflowProcessState(processInstanceId);
-        return ResponseEntity.ok(state);
-    }
-
-    @GetMapping("/process/{processInstanceId}/details")
-    public ResponseEntity<ProcessInstanceDTO> getProcessDetailsById(@PathVariable String processInstanceId) {
-        logger.info("Fetching state for process {}", processInstanceId);
-        ProcessInstanceDTO processInstanceDTO = getProcessInstanceDetails(processInstanceId);
-        return ResponseEntity.ok(processInstanceDTO);
-    }
 
     @PostMapping("/{recordId}")
     public ResponseEntity<Map<String, Object>> updateRecordStatus(
@@ -153,15 +135,6 @@ public class WorkflowController {
                 .body(Collections.singletonMap("error",
                     "Error retrieving process state. Please contact administrator."));
         }
-    }
-
-    /**
-     * Get all completed process instance IDs
-     * @return List of completed process instance IDs
-     */
-    @GetMapping("/process/all")
-    public ResponseEntity<List<ProcessInstanceDTO>> getCompletedProcessInstanceIds() {
-        return ResponseEntity.ok(getAllProcessInstancesWithActivities());
     }
 
 
@@ -258,19 +231,27 @@ public class WorkflowController {
 
         Optional.ofNullable(existingProcess).orElseThrow(() -> new RecordNotFoundException("Record not found: " + recordId));
 
-        if (workflowDTO.getWorkflowState() == WorkflowDTO.WorkflowState.DOCUMENT_READY_FOR_REVIEW
-            && workflowDTO.getState() == WorkflowDTO.State.DRAFTED) {
-            updateWorkflowStatus(recordId,workflowDTO, DRAFT_TASK);
-        }else if((workflowDTO.getWorkflowState() == WorkflowDTO.WorkflowState.REVIEW_ACCEPTED ||
-            workflowDTO.getWorkflowState() == WorkflowDTO.WorkflowState.REVIEW_REJECTED)
-            && workflowDTO.getState() == WorkflowDTO.State.DRAFTED) {
-            updateWorkflowStatus(recordId,workflowDTO, REVIEW_TASK);
-        } else if((workflowDTO.getWorkflowState() == WorkflowDTO.WorkflowState.APPROVAL_ACCEPTED ||
-            workflowDTO.getWorkflowState() == WorkflowDTO.WorkflowState.APPROVAL_REJECTED)
-            && workflowDTO.getState() == WorkflowDTO.State.REVIEWED) {
-            updateWorkflowStatus(recordId,workflowDTO, APPROVE_TASK);
-        } else {
-            throw new InvalidStatusException("Please provide a valid state");
+        try {
+            // Check if the workflow state and state are valid
+            WorkflowDTO.WorkflowState workflowState = workflowDTO.getWorkflowState();
+            WorkflowDTO.State state = workflowDTO.getState();
+
+            if (workflowState == WorkflowDTO.WorkflowState.DOCUMENT_READY_FOR_REVIEW
+                && state == WorkflowDTO.State.DRAFTED) {
+                updateWorkflowStatus(recordId, workflowDTO, DRAFT_TASK);
+            } else if ((workflowState == WorkflowDTO.WorkflowState.REVIEW_ACCEPTED ||
+                workflowState == WorkflowDTO.WorkflowState.REVIEW_REJECTED)
+                && state == WorkflowDTO.State.DRAFTED) {
+                updateWorkflowStatus(recordId, workflowDTO, REVIEW_TASK);
+            } else if ((workflowState == WorkflowDTO.WorkflowState.APPROVAL_ACCEPTED ||
+                workflowState == WorkflowDTO.WorkflowState.APPROVAL_REJECTED)
+                && state == WorkflowDTO.State.REVIEWED) {
+                updateWorkflowStatus(recordId, workflowDTO, APPROVE_TASK);
+            } else {
+                throw new InvalidStatusException("Please provide a valid state");
+            }
+        } catch (Exception e) {
+            throw new InvalidStatusException("Invalid state: " + e.getMessage());
         }
 
     }
@@ -284,6 +265,8 @@ public class WorkflowController {
 
         if(workflowDTO.getWorkflowState() == WorkflowDTO.WorkflowState.APPROVAL_ACCEPTED) {
             state = WorkflowDTO.State.SIGNED;
+        }if(workflowDTO.getWorkflowState() == WorkflowDTO.WorkflowState.REVIEW_ACCEPTED) {
+            state = WorkflowDTO.State.REVIEWED;
         } else if(workflowDTO.getWorkflowState() == WorkflowDTO.WorkflowState.REVIEW_REJECTED
             || workflowDTO.getWorkflowState() == WorkflowDTO.WorkflowState.APPROVAL_REJECTED) {
             state = WorkflowDTO.State.DRAFTED;
@@ -308,193 +291,6 @@ public class WorkflowController {
             .taskDefinitionKey(taskDefinitionKey)
             .processVariableValueEquals("recordId", recordId)
             .singleResult();
-    }
-
-    private static final String SEQUENCE_FLOW = "sequenceFlow";
-
-    // Get the state of a process instance
-    public String getWorkflowProcessState(String processInstanceId) {
-        // Retrieve the process instance
-        ProcessInstance processInstance = runtimeService.createProcessInstanceQuery()
-            .processInstanceId(processInstanceId)
-            .singleResult();
-
-        if (processInstance == null) {
-            return "Process instance not found";
-        }
-
-        // Get active activities for the running process instance
-        List<String> activeActivities = runtimeService.getActiveActivityIds(processInstance.getId());
-
-        if (activeActivities.isEmpty()) {
-            return "Process has completed";
-        }
-
-        return "Active activities: " + String.join(", ", activeActivities);
-    }
-
-    public List<ProcessInstanceDTO> getAllProcessInstancesWithActivities() {
-        List<ProcessInstanceDTO> allProcesses = new ArrayList<>();
-
-        // Get historic processes
-        List<HistoricProcessInstance> historicProcesses = historyService.createHistoricProcessInstanceQuery()
-            .orderByProcessInstanceStartTime()
-            .desc()
-            .list();
-
-        // Get current running processes
-        List<ProcessInstance> runningProcesses = runtimeService.createProcessInstanceQuery()
-            .active()
-            .list();
-
-        // Process historic instances
-        for (HistoricProcessInstance historicProcess : historicProcesses) {
-            ProcessInstanceDTO processDTO = createProcessInstanceDTO(historicProcess);
-            allProcesses.add(processDTO);
-        }
-
-        // Add any running processes that might not be in history yet
-        for (ProcessInstance runningProcess : runningProcesses) {
-            if (!processExists(allProcesses, runningProcess.getId())) {
-                ProcessInstanceDTO processDTO = createProcessInstanceDTOFromRunning(runningProcess);
-                allProcesses.add(processDTO);
-            }
-        }
-
-        return allProcesses;
-    }
-
-    public ProcessInstanceDTO getProcessInstanceDetails(String processInstanceId) {
-        HistoricProcessInstance historicProcess = findHistoricProcess(processInstanceId);
-        return createProcessInstanceDTO(historicProcess);
-    }
-
-    // Helper methods
-    private ProcessInstanceDTO createProcessInstanceDTO(HistoricProcessInstance historicProcess) {
-        String state = determineProcessState(historicProcess);
-        List<ActivityInstanceDTO> activities = getActivitiesForProcess(historicProcess.getId(), state);
-
-        return new ProcessInstanceDTO(
-            historicProcess.getProcessDefinitionId(),
-            historicProcess.getId(),
-            state,
-            activities
-        );
-    }
-
-    private ProcessInstanceDTO createProcessInstanceDTOFromRunning(ProcessInstance runningProcess) {
-        String state = runningProcess.isSuspended() ? "SUSPENDED" : "ACTIVE";
-        List<ActivityInstanceDTO> activities = getCurrentActivities(runningProcess.getId());
-
-        return new ProcessInstanceDTO(
-            runningProcess.getProcessDefinitionId(),
-            runningProcess.getId(),
-            state,
-            activities
-        );
-    }
-
-    private String determineProcessState(HistoricProcessInstance historicProcess) {
-        if (historicProcess.getEndTime() != null) {
-            return "COMPLETED";
-        }
-
-        ProcessInstance runningInstance = runtimeService.createProcessInstanceQuery()
-            .processInstanceId(historicProcess.getId())
-            .singleResult();
-
-        if (runningInstance != null) {
-            return runningInstance.isSuspended() ? "SUSPENDED" : "ACTIVE";
-        }
-
-        return "TERMINATED";
-    }
-
-    private List<ActivityInstanceDTO> getActivitiesForProcess(String processId, String processState) {
-        List<ActivityInstanceDTO> activities = getHistoricActivities(processId);
-
-        if (processState.equals("ACTIVE") || processState.equals("SUSPENDED")) {
-            activities.addAll(getCurrentActivitiesNotInHistory(processId, activities));
-        }
-
-        return activities;
-    }
-
-    private List<ActivityInstanceDTO> getHistoricActivities(String processId) {
-        List<HistoricActivityInstance> historicActivities = historyService.createHistoricActivityInstanceQuery()
-            .processInstanceId(processId)
-            .orderByHistoricActivityInstanceStartTime()
-            .asc()
-            .list();
-
-        return historicActivities.stream()
-            .filter(activity -> !SEQUENCE_FLOW.equals(activity.getActivityType()))
-            .map(this::mapHistoricActivityToDTO)
-            .collect(Collectors.toList());
-    }
-
-    private ActivityInstanceDTO mapHistoricActivityToDTO(HistoricActivityInstance historicActivity) {
-        String activityState = historicActivity.getEndTime() != null ? "COMPLETED" : "ACTIVE";
-
-        return new ActivityInstanceDTO(
-            historicActivity.getActivityId(),
-            historicActivity.getActivityName(),
-            historicActivity.getActivityType(),
-            historicActivity.getStartTime(),
-            historicActivity.getEndTime(),
-            activityState
-        );
-    }
-
-    private List<ActivityInstanceDTO> getCurrentActivities(String processId) {
-        List<ActivityInstance> currentActivities = runtimeService.createActivityInstanceQuery()
-            .processInstanceId(processId)
-            .list();
-
-        return currentActivities.stream()
-            .filter(activity -> !SEQUENCE_FLOW.equals(activity.getActivityType()))
-            .map(this::mapCurrentActivityToDTO)
-            .collect(Collectors.toList());
-    }
-
-    private List<ActivityInstanceDTO> getCurrentActivitiesNotInHistory(
-        String processId, List<ActivityInstanceDTO> existingActivities) {
-        return getCurrentActivities(processId).stream()
-            .filter(activity -> !activityExistsInList(existingActivities, activity.getActivityId()))
-            .collect(Collectors.toList());
-    }
-
-    private ActivityInstanceDTO mapCurrentActivityToDTO(ActivityInstance activity) {
-        return new ActivityInstanceDTO(
-            activity.getActivityId(),
-            activity.getActivityName(),
-            activity.getActivityType(),
-            activity.getStartTime(),
-            null,
-            "ACTIVE"
-        );
-    }
-
-    private boolean activityExistsInList(List<ActivityInstanceDTO> activities, String activityId) {
-        return activities.stream()
-            .anyMatch(a -> a.getActivityId().equals(activityId));
-    }
-
-    private boolean processExists(List<ProcessInstanceDTO> processes, String processId) {
-        return processes.stream()
-            .anyMatch(p -> p.getInstanceId().equals(processId));
-    }
-
-    private HistoricProcessInstance findHistoricProcess(String processInstanceId) {
-        HistoricProcessInstance historicProcess = historyService.createHistoricProcessInstanceQuery()
-            .processInstanceId(processInstanceId)
-            .singleResult();
-
-        if (historicProcess == null) {
-            throw new RecordNotFoundException("Process instance not found: " + processInstanceId);
-        }
-
-        return historicProcess;
     }
 
 }
