@@ -13,8 +13,7 @@
 
         <sequenceFlow id="flow1" sourceRef="startEvent" targetRef="draftTask"/>
 
-        <userTask id="draftTask" name="Draft Task"
-                  flowable:assignee="${initiator}">
+        <userTask id="draftTask" name="Draft Task">
             <documentation>Create draft of the task</documentation>
         </userTask>
 
