@@ -14,11 +14,29 @@
             <documentation>Create draft of the task</documentation>
         </userTask>
 
-        <sequenceFlow id="flow2" sourceRef="draftTask" targetRef="updateStateToReadyForReview"/>
+        <sequenceFlow id="flow2" sourceRef="draftTask" targetRef="validateDraftState"/>
+
+        <exclusiveGateway id="validateDraftState" name="Validate Draft State"/>
+
+        <sequenceFlow id="flow2a" sourceRef="validateDraftState" targetRef="updateStateToReadyForReview">
+            <conditionExpression xsi:type="tFormalExpression">
+                ${workflowState == 'DOCUMENT_READY_FOR_REVIEW' &amp;&amp; state == 'DRAFTED'}
+            </conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flow2b" sourceRef="validateDraftState" targetRef="handleDraftError">
+            <conditionExpression xsi:type="tFormalExpression">
+                ${workflowState != 'DOCUMENT_READY_FOR_REVIEW' || state != 'DRAFTED'}
+            </conditionExpression>
+        </sequenceFlow>
+
+        <serviceTask id="handleDraftError" name="Handle Draft Error"
+                     flowable:class="com.task.flowable.taskapprovalflowable.delegate.InvalidStateErrorDelegate"/>
+
+        <sequenceFlow id="flowDraftError" sourceRef="handleDraftError" targetRef="draftTask"/>
 
         <serviceTask id="updateStateToReadyForReview" name="Update State to Ready for Review"
-                     flowable:delegateExpression="${stateUpdateDelegate}">
-        </serviceTask>
+                     flowable:delegateExpression="${stateUpdateDelegate}"/>
 
         <sequenceFlow id="flow3" sourceRef="updateStateToReadyForReview" targetRef="sendReviewerEmail"/>
 
@@ -32,7 +50,26 @@
             <documentation>Review the submitted task</documentation>
         </userTask>
 
-        <sequenceFlow id="flow5" sourceRef="reviewTask" targetRef="reviewDecision"/>
+        <sequenceFlow id="flow5" sourceRef="reviewTask" targetRef="validateReviewState"/>
+
+        <exclusiveGateway id="validateReviewState" name="Validate Review State"/>
+
+        <sequenceFlow id="flow5a" sourceRef="validateReviewState" targetRef="reviewDecision">
+            <conditionExpression xsi:type="tFormalExpression">
+                ${(workflowState == 'REVIEW_ACCEPTED' || workflowState == 'REVIEW_REJECTED') &amp;&amp; state == 'DRAFTED'}
+            </conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flow5b" sourceRef="validateReviewState" targetRef="handleReviewError">
+            <conditionExpression xsi:type="tFormalExpression">
+                ${!(workflowState == 'REVIEW_ACCEPTED' || workflowState == 'REVIEW_REJECTED') || state != 'DRAFTED'}
+            </conditionExpression>
+        </sequenceFlow>
+
+        <serviceTask id="handleReviewError" name="Handle Review Error"
+                     flowable:class="com.task.flowable.taskapprovalflowable.delegate.InvalidStateErrorDelegate"/>
+
+        <sequenceFlow id="flowReviewError" sourceRef="handleReviewError" targetRef="reviewTask"/>
 
         <exclusiveGateway id="reviewDecision" name="Review Decision"/>
 
@@ -45,8 +82,7 @@
         </sequenceFlow>
 
         <serviceTask id="updateStateToReviewAccepted" name="Update State to Review Accepted"
-                     flowable:delegateExpression="${stateUpdateDelegate}">
-        </serviceTask>
+                     flowable:delegateExpression="${stateUpdateDelegate}"/>
 
         <sequenceFlow id="flow8" sourceRef="updateStateToReviewAccepted" targetRef="notifyReviewAccepted"/>
 
@@ -56,8 +92,7 @@
         <sequenceFlow id="flow9" sourceRef="notifyReviewAccepted" targetRef="approveTask"/>
 
         <serviceTask id="updateStateToReviewRejected" name="Update State to Review Rejected"
-                     flowable:delegateExpression="${stateUpdateDelegate}">
-        </serviceTask>
+                     flowable:delegateExpression="${stateUpdateDelegate}"/>
 
         <sequenceFlow id="flow10" sourceRef="updateStateToReviewRejected" targetRef="notifyReviewRejected"/>
 
@@ -71,7 +106,26 @@
             <documentation>Final approval of the task</documentation>
         </userTask>
 
-        <sequenceFlow id="flow12" sourceRef="approveTask" targetRef="approvalDecision"/>
+        <sequenceFlow id="flow12" sourceRef="approveTask" targetRef="validateApprovalState"/>
+
+        <exclusiveGateway id="validateApprovalState" name="Validate Approval State"/>
+
+        <sequenceFlow id="flow12a" sourceRef="validateApprovalState" targetRef="approvalDecision">
+            <conditionExpression xsi:type="tFormalExpression">
+                ${(workflowState == 'APPROVAL_ACCEPTED' || workflowState == 'APPROVAL_REJECTED') &amp;&amp; state == 'REVIEWED'}
+            </conditionExpression>
+        </sequenceFlow>
+
+        <sequenceFlow id="flow12b" sourceRef="validateApprovalState" targetRef="handleApprovalError">
+            <conditionExpression xsi:type="tFormalExpression">
+                ${!(workflowState == 'APPROVAL_ACCEPTED' || workflowState == 'APPROVAL_REJECTED') || state != 'REVIEWED'}
+            </conditionExpression>
+        </sequenceFlow>
+
+        <serviceTask id="handleApprovalError" name="Handle Approval Error"
+                     flowable:class="com.task.flowable.taskapprovalflowable.delegate.InvalidStateErrorDelegate"/>
+
+        <sequenceFlow id="flowApprovalError" sourceRef="handleApprovalError" targetRef="approveTask"/>
 
         <exclusiveGateway id="approvalDecision" name="Approval Decision"/>
 
@@ -84,8 +138,7 @@
         </sequenceFlow>
 
         <serviceTask id="updateStateToApprovalAccepted" name="Update State to Approval Accepted"
-                     flowable:delegateExpression="${stateUpdateDelegate}">
-        </serviceTask>
+                     flowable:delegateExpression="${stateUpdateDelegate}"/>
 
         <sequenceFlow id="flow15" sourceRef="updateStateToApprovalAccepted" targetRef="notifyApprovalAccepted"/>
 
@@ -95,8 +148,7 @@
         <sequenceFlow id="flow16" sourceRef="notifyApprovalAccepted" targetRef="endEvent"/>
 
         <serviceTask id="updateStateToApprovalRejected" name="Update State to Approval Rejected"
-                     flowable:delegateExpression="${stateUpdateDelegate}">
-        </serviceTask>
+                     flowable:delegateExpression="${stateUpdateDelegate}"/>
 
         <sequenceFlow id="flow17" sourceRef="updateStateToApprovalRejected" targetRef="notifyApprovalRejected"/>
 
